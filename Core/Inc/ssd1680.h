@@ -54,7 +54,7 @@
 
 
 //Declare the SSD1680 Display to index through each element of the buffer
-extern uint8_t SSD1680_frame_buffer[SD1680_BUFFER_LEN];
+extern uint8_t SSD1680_frame_buffer[SSD1680_BUFFER_LEN];
 
 typedef struct{
 

@@ -18,12 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include "mlx90614.h"
 #include <string.h>
 #include <stdio.h>
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +45,8 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
+IWDG_HandleTypeDef hiwdg;
+
 SPI_HandleTypeDef hspi2;
 
 UART_HandleTypeDef huart2;
@@ -61,6 +63,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_IWDG_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -92,12 +95,12 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-   HAL_StatusTypeDef ret = MLX90614_initialise(&mlx90614, &hi2c1);
+ /*  HAL_StatusTypeDef ret = MLX90614_initialise(&mlx90614, &hi2c1);
 
    if(ret != HAL_OK){
 	   strcpy(buff, "Error in trying to initialise\n");
 
-   }
+   }*/
 
 
   /* USER CODE END Init */
@@ -114,8 +117,11 @@ int main(void)
   MX_USART2_UART_Init();
   MX_SPI2_Init();
   MX_I2C1_Init();
-  /* USER CODE BEGIN 2 */
 
+  /* USER CODE BEGIN 2 */
+  HAL_Delay(500);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
+  MX_IWDG_Init();
 
 
   /* USER CODE END 2 */
@@ -125,34 +131,35 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
-
-	if(ret != HAL_OK){
-		strcpy(buff, "Error in trying to read temperature\n");
-	}
-	else
-	{
-
-		int16_t temp_data = mlx90614.temp_data_c;
-
-		float temp_data_f = (float)temp_data;
-
-		//The signed 16bit integer should take care of prim
-		//TODO: how to represent floating point temperatures since resolution is 0.02C
-
-		sprintf(buff, "%.2f C\r\n", temp_data_f);
+	  HAL_Delay(18);
+	  HAL_IWDG_Refresh(&hiwdg);
 
 
-		HAL_UART_Transmit(&huart2, (uint8_t*)buff, strlen(buff), HAL_MAX_DELAY);
+	  /*HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
 
-		//wait for 500 ms
-		HAL_Delay(500);
+	  	if(ret != HAL_OK){
+	  		strcpy(buff, "Error in trying to read temperature\n");
+	  	}
+	  	else
+	  	{
+
+	  		int16_t temp_data = mlx90614.temp_data_c;
+
+	  		float temp_data_f = (float)temp_data;
+
+	  		//The signed 16bit integer should take care of prim
+	  		//TODO: how to represent floating point temperatures since resolution is 0.02C
+
+	  		sprintf(buff, "%.2f C\r\n", temp_data_f);
 
 
-	}
+	  		HAL_UART_Transmit(&huart2, (uint8_t*)buff, strlen(buff), HAL_MAX_DELAY);
+
+	  		//wait for 500 ms
+	  		HAL_Delay(500);
 
 
-
+	  	}*/
 
     /* USER CODE BEGIN 3 */
   }
@@ -176,9 +183,10 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 16;
@@ -236,6 +244,34 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_8;
+  hiwdg.Init.Reload = 79;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
 
 }
 

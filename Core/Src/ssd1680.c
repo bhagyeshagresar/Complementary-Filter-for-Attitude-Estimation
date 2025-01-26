@@ -8,6 +8,7 @@
 #include "ssd1680.h"
 
 
+/*
 void SSD1680_init(SSD1680* driver, SPI_HandleTypeDef* spiHandle){
 
 	//Initialise the SPI interface
@@ -35,3 +36,4 @@ void SSD1680_send_command(SSD1680* driver, uint8_t command){
 
 
 }
+*/

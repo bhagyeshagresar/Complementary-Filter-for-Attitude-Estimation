@@ -1,0 +1,4 @@
+mlx90614.c:12:19:MLX90614_initialise	1
+mlx90614.c:23:19:MLX90614_ReadTemperature	1
+mlx90614.c:47:19:MLX90614_ReadRegister	1
+mlx90614.c:55:19:MLX90614_ReadRegisters	1

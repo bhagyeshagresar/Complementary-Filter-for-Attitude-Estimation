@@ -1,4 +1,2 @@
 ../Core/Src/speed_controller.c:15:7:get_speed_kp	1
-../Core/Src/speed_controller.c:21:7:get_speed_ki	1
-../Core/Src/speed_controller.c:26:7:get_speed_kd	1
-../Core/Src/speed_controller.c:31:6:set_speed_gains	1
+../Core/Src/speed_controller.c:20:6:set_speed_gains	1

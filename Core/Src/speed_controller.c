@@ -23,15 +23,3 @@ void set_speed_gains(float set_kp){
 }
 
 //This function will be called by the TIM2 ISR ever 200ms to check the
-void speed_control(){
-
-	//Error
-	static int e = 0;
-
-
-
-
-
-
-
-}

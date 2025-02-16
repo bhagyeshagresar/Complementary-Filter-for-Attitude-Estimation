@@ -23,7 +23,7 @@ The sensor has a resolution of 0.02C.
 
 # Proportional Controller for fan control
 
-I found some ICs which are used in personal computers like the MAX6653 fan controllers for temperature monitoring inside the cpu. These use temperature measure as an input and output pwm in different mode(automatic mode gives proportional pwm increase based on increase of temperature in the threshold). Based on this approach, the first controller to test will be a simple Proportional Controller
+I found some ICs which are used in personal computers like the MAX6653 fan controllers for temperature monitoring inside the cpu. These use temperature measure as an input and output pwm in different mode(automatic mode gives proportional pwm increase based on increase of temperature in the threshold). Based on this approach, the first controller to test will be a simple Proportional Controller.
 
 The MLX90614 Temperature sensor will be used to measure the temperature. 
 

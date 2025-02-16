@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := smart_cooling_fan
+BUILD_ARTIFACT_NAME := haptic_glove
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-smart_cooling_fan.elf \
+haptic_glove.elf \
 
 MAP_FILES += \
-smart_cooling_fan.map \
+haptic_glove.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-smart_cooling_fan.list \
+haptic_glove.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: smart_cooling_fan.elf secondary-outputs
+main-build: haptic_glove.elf secondary-outputs
 
 # Tool invocations
-smart_cooling_fan.elf smart_cooling_fan.map: $(OBJS) $(USER_OBJS) C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "smart_cooling_fan.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="smart_cooling_fan.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
+haptic_glove.elf haptic_glove.map: $(OBJS) $(USER_OBJS) C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "haptic_glove.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="haptic_glove.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,14 +70,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-smart_cooling_fan.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "smart_cooling_fan.list"
+haptic_glove.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "haptic_glove.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout smart_cooling_fan.elf smart_cooling_fan.list smart_cooling_fan.map
+	-$(RM) default.size.stdout haptic_glove.elf haptic_glove.list haptic_glove.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

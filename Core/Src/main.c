@@ -21,7 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "RCFilter.h"
 #include "mlx90614.h"
+#include "mpu6050.h"
 #include <string.h>
 #include <stdio.h>
 /* USER CODE END Includes */
@@ -44,31 +46,24 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c3;
 
-IWDG_HandleTypeDef hiwdg;
-
-SPI_HandleTypeDef hspi2;
-
-TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 MLX90614 mlx90614;
-
-
+RCFilter lpFilter;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_SPI2_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_IWDG_Init(void);
-static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_I2C3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -91,7 +86,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  char buff[50];
+
 
   /* USER CODE END 1 */
 
@@ -101,12 +96,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
- /*  HAL_StatusTypeDef ret = MLX90614_initialise(&mlx90614, &hi2c1);
-
-   if(ret != HAL_OK){
-	   strcpy(buff, "Error in trying to initialise\n");
-
-   }*/
+  RCFilter_Init(&lpFilter, 5.0f, 0.01f);
 
 
   /* USER CODE END Init */
@@ -121,16 +111,70 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
-  MX_SPI2_Init();
   MX_I2C1_Init();
-  MX_IWDG_Init();
-  MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(500);
-  //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
-  MX_IWDG_Init();
-  HAL_TIM_Base_Start_IT(&htim2); //basic timer ISR startuo HAL function
+  //MX_IWDG_Init();
+
+  char mlx_buff[100];
+  uint8_t mpu_buff[50];
+  uint8_t accel_buff1[12];
+  uint8_t accel_buff2[12];
+  HAL_StatusTypeDef ret;
+  int16_t accel_val;
+
+
+  //Initialise the MLX90614 temperature sensor
+   ret = MLX90614_initialise(&mlx90614, &hi2c3);
+
+	 if(ret != HAL_OK){
+	   strcpy(mlx_buff, "Error in trying to initialise\n");
+
+	 }else{
+		 strcpy(mlx_buff, "successfully initialised the temperature sensor\n");
+	 }
+
+     HAL_UART_Transmit(&huart2, mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
+     HAL_Delay(500);
+
+
+
+
+    uint8_t pwr_data = 0x00;
+
+    ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, 0x6B, 1, &pwr_data, 1, 100);
+
+    if(ret == HAL_OK){
+
+    	  strcpy((char*)mpu_buff, "Device is awake\r\n");
+      }
+      else{
+    	  strcpy((char*)mpu_buff, "Problem setting the sleep bit\r\n");
+      }
+
+    HAL_UART_Transmit(&huart2, mpu_buff, strlen(mpu_buff), HAL_MAX_DELAY);
+
+    HAL_Delay(500);
+
+    uint8_t accel_init = 0x00;
+
+
+    ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, ACCEL_CONFIG, 1, &accel_init, 1, 100);
+
+    if(ret == HAL_OK){
+
+    	  strcpy((char*)mpu_buff, "Acceleration is configured\r\n");
+      }
+      else{
+    	  strcpy((char*)mpu_buff, "Problem configuring the acceleration\r\n");
+      }
+
+
+    HAL_UART_Transmit(&huart2, mpu_buff, strlen((mpu_buff)), HAL_MAX_DELAY);
+
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -139,35 +183,48 @@ int main(void)
   {
 
 
-
-	  HAL_IWDG_Refresh(&hiwdg); //configured it to reset after 20ms
-
-
-	  HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
-
-		if(ret != HAL_OK){
-			strcpy(buff, "Error in trying to read temperature\n");
-		}
-		else
-		{
-
-			int16_t temp_data = mlx90614.temp_data_c;
-
-			float temp_data_f = (float)temp_data;
-
-			//The signed 16bit integer should take care of prim
-			//TODO: how to represent floating point temperatures since resolution is 0.02C
-
-			sprintf(buff, "%.2f C\r\n", temp_data_f);
+	//Read MLX90614 Sensor temperature
+	HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
+	if(ret != HAL_OK){
+		strcpy(mlx_buff, "Error in trying to read temperature\n");
+	}
+	else
+	{
+		int16_t temp_data = mlx90614.temp_data_c;
+		float temp_data_f = (float)temp_data;
+		//The signed 16bit integer should take care of prim
+		//TODO: how to represent floating point temperatures since resolution is 0.02C
+		sprintf(mlx_buff, "%.2f C\r\n", temp_data_f);
+		HAL_UART_Transmit(&huart2, (uint8_t*)mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
+		//wait for 500 ms
+		HAL_Delay(500);
 
 
-			HAL_UART_Transmit(&huart2, (uint8_t*)buff, strlen(buff), HAL_MAX_DELAY);
-
-			//wait for 500 ms
-			HAL_Delay(500);
+	}
 
 
-		}
+	// Reads data sequentially from MPU6050 depending on how many bytes you specify
+	HAL_Delay(10);
+	ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_ZOUT_H, I2C_MEMADD_SIZE_8BIT , mpu_buff, 2, 10000);
+
+	if(ret != HAL_OK){
+		strcpy((char*)mpu_buff, "Error Receiving 1st byte\r\n");
+	}
+	else{
+		;
+	}
+
+	//combine the two bytes
+	accel_val = ((mpu_buff[0] << 8) | mpu_buff[1]);
+	float accel_val_flt = accel_val/16384.0; //why 0.000061 ?
+	float filtered_val = RCFilter_Update(&lpFilter, accel_val_flt);
+
+
+	char logBuf[128];
+	sprintf(logBuf, "%.2f, %.2f\r\n", accel_val_flt, filtered_val);
+
+	HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -192,10 +249,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 8;
@@ -257,127 +313,36 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * @brief IWDG Initialization Function
+  * @brief I2C3 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_IWDG_Init(void)
+static void MX_I2C3_Init(void)
 {
 
-  /* USER CODE BEGIN IWDG_Init 0 */
+  /* USER CODE BEGIN I2C3_Init 0 */
 
-  /* USER CODE END IWDG_Init 0 */
+  /* USER CODE END I2C3_Init 0 */
 
-  /* USER CODE BEGIN IWDG_Init 1 */
+  /* USER CODE BEGIN I2C3_Init 1 */
 
-  /* USER CODE END IWDG_Init 1 */
-  hiwdg.Instance = IWDG;
-  hiwdg.Init.Prescaler = IWDG_PRESCALER_8;
-  hiwdg.Init.Reload = 4095;
-  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  /* USER CODE END I2C3_Init 1 */
+  hi2c3.Instance = I2C3;
+  hi2c3.Init.ClockSpeed = 100000;
+  hi2c3.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c3.Init.OwnAddress1 = 0;
+  hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c3.Init.OwnAddress2 = 0;
+  hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c3) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN IWDG_Init 2 */
+  /* USER CODE BEGIN I2C3_Init 2 */
 
-  /* USER CODE END IWDG_Init 2 */
-
-}
-
-/**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI2_Init(void)
-{
-
-  /* USER CODE BEGIN SPI2_Init 0 */
-
-  /* USER CODE END SPI2_Init 0 */
-
-  /* USER CODE BEGIN SPI2_Init 1 */
-
-  /* USER CODE END SPI2_Init 1 */
-  /* SPI2 parameter configuration*/
-  hspi2.Instance = SPI2;
-  hspi2.Init.Mode = SPI_MODE_MASTER;
-  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi2.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI2_Init 2 */
-
-  /* USER CODE END SPI2_Init 2 */
-
-}
-
-/**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 8400-1;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 2000-1;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-  HAL_TIM_MspPostInit(&htim2);
+  /* USER CODE END I2C3_Init 2 */
 
 }
 
@@ -400,12 +365,12 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 84-1;
+  htim3.Init.Prescaler = 840-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 100-1;
+  htim3.Init.Period = 1000-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  if (HAL_TIM_OC_Init(&htim3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -415,18 +380,17 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
-  HAL_TIM_MspPostInit(&htim3);
 
 }
 
@@ -509,16 +473,24 @@ static void MX_GPIO_Init(void)
 	}
 }*/
 
+
+//callback to handle Proportional Controller
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
-	if(htim->Instance == TIM2){
-		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-	}
+
 
 
 }
 
 
+
+
+//Callback to handler data ready
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+
+
+
+}
 
 
 

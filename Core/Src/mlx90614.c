@@ -9,6 +9,12 @@
 #include "mlx90614.h"
 //#include "stm32f4xx_hal_i2c.h"
 
+
+
+
+
+
+
 HAL_StatusTypeDef MLX90614_initialise(MLX90614 *dev, I2C_HandleTypeDef *i2cHandle){
 
 	dev->i2cHandle = i2cHandle;

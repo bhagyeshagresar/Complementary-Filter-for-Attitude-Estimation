@@ -58,7 +58,7 @@ extern uint8_t SSD1680_frame_buffer[SSD1680_BUFFER_LEN];
 
 typedef struct{
 
-	SPI_HandleTypeDef *spiHandle;
+	//SPI_HandleTypeDef *spiHandle;
 
 
 }SSD1680;
@@ -68,7 +68,7 @@ typedef struct{
 
 
 
-void SSD1680_init(SSD1680* driver, SPI_HandleTypeDef* spiHandle);
+//void SSD1680_init(SSD1680* driver, SPI_HandleTypeDef* spiHandle);
 void SSD1680_send_command(SSD1680* driver, uint8_t command);
 void SSD1680_send_data(SSD1680* driver);
 void SSD1680_load_waveform_lut();

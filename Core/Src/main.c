@@ -126,7 +126,7 @@ int main(void)
 
 
   //Initialise the MLX90614 temperature sensor
-   ret = MLX90614_initialise(&mlx90614, &hi2c3);
+   ret = MLX90614_initialise(&mlx90614, &hi2c1);
 
 	 if(ret != HAL_OK){
 	   strcpy(mlx_buff, "Error in trying to initialise\n");

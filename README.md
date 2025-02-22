@@ -13,3 +13,6 @@ Current Sensor Stack:
 4) Monitoring Epaper Display - SSD1680 Display Driver 
 
 Possible ROS integration for control and visualisation tasks
+
+
+# Complementary Filter using Euler Angles

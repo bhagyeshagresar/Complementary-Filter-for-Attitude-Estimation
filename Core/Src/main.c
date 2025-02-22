@@ -35,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define SAMPLE_TIME 20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -121,8 +121,10 @@ int main(void)
   uint8_t mpu_buff[50];
   uint8_t accel_buff1[12];
   uint8_t accel_buff2[12];
+  char logBuf[128];
   HAL_StatusTypeDef ret;
   int16_t accel_val;
+  uint32_t timerSampling = 0;
 
 
   //Initialise the MLX90614 temperature sensor
@@ -135,8 +137,8 @@ int main(void)
 		 strcpy(mlx_buff, "successfully initialised the temperature sensor\n");
 	 }
 
-     HAL_UART_Transmit(&huart2, mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
-     HAL_Delay(500);
+	 HAL_UART_Transmit(&huart2, mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
+	 HAL_Delay(500);
 
 
 
@@ -179,12 +181,13 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
 
 
 	//Read MLX90614 Sensor temperature
-	HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
+	/*HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
 	if(ret != HAL_OK){
 		strcpy(mlx_buff, "Error in trying to read temperature\n");
 	}
@@ -202,28 +205,31 @@ int main(void)
 
 	}
 
+*/
 
-	// Reads data sequentially from MPU6050 depending on how many bytes you specify
-	HAL_Delay(10);
-	ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_ZOUT_H, I2C_MEMADD_SIZE_8BIT , mpu_buff, 2, 10000);
+	//sample at 10ms
+	if((HAL_GetTick() - timerSampling) >= SAMPLE_TIME){
 
-	if(ret != HAL_OK){
-		strcpy((char*)mpu_buff, "Error Receiving 1st byte\r\n");
+		ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_ZOUT_H, I2C_MEMADD_SIZE_8BIT , mpu_buff, 2, 10000);
+
+		if(ret != HAL_OK){
+			strcpy((char*)mpu_buff, "Error Reading Accelerometer data\r\n");
+		}
+		else{
+			;
+		}
+
+		//combine the two bytes
+		accel_val = ((mpu_buff[0] << 8) | mpu_buff[1]);
+		float accel_val_flt = accel_val/16384.0; //why 0.000061 ?
+		float accel_val_lpf = RCFilter_Update(&lpFilter, accel_val_flt);
+
+		sprintf(logBuf, "%.2f, %.2f\r\n", accel_val_flt, accel_val_lpf);
+		HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
+
+		timerSampling = HAL_GetTick();
+
 	}
-	else{
-		;
-	}
-
-	//combine the two bytes
-	accel_val = ((mpu_buff[0] << 8) | mpu_buff[1]);
-	float accel_val_flt = accel_val/16384.0; //why 0.000061 ?
-	float filtered_val = RCFilter_Update(&lpFilter, accel_val_flt);
-
-
-	char logBuf[128];
-	sprintf(logBuf, "%.2f, %.2f\r\n", accel_val_flt, filtered_val);
-
-	HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
 
     /* USER CODE END WHILE */
 

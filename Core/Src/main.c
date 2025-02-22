@@ -119,11 +119,12 @@ int main(void)
 
   char mlx_buff[100];
   uint8_t mpu_buff[50];
-  uint8_t accel_buff1[12];
-  uint8_t accel_buff2[12];
   char logBuf[128];
   HAL_StatusTypeDef ret;
-  int16_t accel_val;
+  int16_t accel_val_x;
+  int16_t accel_val_y;
+  int16_t accel_val_z;
+
   uint32_t timerSampling = 0;
 
 
@@ -187,9 +188,11 @@ int main(void)
 
 
 	//Read MLX90614 Sensor temperature
-	/*HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
+	HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
 	if(ret != HAL_OK){
-		strcpy(mlx_buff, "Error in trying to read temperature\n");
+		strcpy(mlx_buff, "Error in trying to read temperature\r\n");
+		HAL_UART_Transmit(&huart2, (uint8_t*)mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
+		HAL_Delay(2000);
 	}
 	else
 	{
@@ -198,33 +201,48 @@ int main(void)
 		//The signed 16bit integer should take care of prim
 		//TODO: how to represent floating point temperatures since resolution is 0.02C
 		sprintf(mlx_buff, "%.2f C\r\n", temp_data_f);
-		HAL_UART_Transmit(&huart2, (uint8_t*)mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
+		//HAL_UART_Transmit(&huart2, (uint8_t*)mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
 		//wait for 500 ms
-		HAL_Delay(500);
+		//HAL_Delay(500);
 
 
 	}
 
-*/
 
 	//sample at 10ms
 	if((HAL_GetTick() - timerSampling) >= SAMPLE_TIME){
 
-		ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_ZOUT_H, I2C_MEMADD_SIZE_8BIT , mpu_buff, 2, 10000);
+		//read all 3 accelerometer values by specifiying 6 as the size
+		ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT , mpu_buff, 6, 10000);
 
 		if(ret != HAL_OK){
 			strcpy((char*)mpu_buff, "Error Reading Accelerometer data\r\n");
+			HAL_UART_Transmit(&huart2, mpu_buff, strlen((mpu_buff)), HAL_MAX_DELAY);
+
 		}
 		else{
 			;
 		}
 
-		//combine the two bytes
-		accel_val = ((mpu_buff[0] << 8) | mpu_buff[1]);
-		float accel_val_flt = accel_val/16384.0; //why 0.000061 ?
-		float accel_val_lpf = RCFilter_Update(&lpFilter, accel_val_flt);
+		//combine the two bytes for accel x, y and z
+		accel_val_x = ((uint16_t)(mpu_buff[0] << 8) | mpu_buff[1]);
+		accel_val_y = ((uint16_t)(mpu_buff[2] << 8) | mpu_buff[3]);
+		accel_val_z = ((uint16_t)(mpu_buff[4] << 8) | mpu_buff[5]);
 
-		sprintf(logBuf, "%.2f, %.2f\r\n", accel_val_flt, accel_val_lpf);
+		//convert raw acceleration values to g values
+		float accel_val_flt_x = accel_val_x/16384.0; //why 0.000061 ?
+		float accel_val_flt_y = accel_val_y/16384.0;
+		float accel_val_flt_z = accel_val_z/16384.0;
+
+		//low pass filter the noisy measurements using a RC low pass filter
+		float accel_val_lpf_x = RCFilter_Update(&lpFilter, accel_val_flt_x);
+		float accel_val_lpf_y = RCFilter_Update(&lpFilter, accel_val_flt_y);
+		float accel_val_lpf_z = RCFilter_Update(&lpFilter, accel_val_flt_z);
+
+
+
+		sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_flt_x, accel_val_flt_y, accel_val_flt_z);
+		//sprintf(logBuf, "%.2f, %.2f\r\n", accel_val_flt_z, accel_val_lpf_z);
 		HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
 
 		timerSampling = HAL_GetTick();

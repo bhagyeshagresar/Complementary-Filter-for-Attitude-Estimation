@@ -236,8 +236,8 @@ int main(void)
 
 		//low pass filter the noisy measurements using a RC low pass filter
 		__disable_irq();
-		float accel_val_lpf_x = RCFilter_Update(&lpFilter, accel_val_flt_x);
-		float accel_val_lpf_y = RCFilter_Update(&lpFilter, accel_val_flt_y);
+		//float accel_val_lpf_x = RCFilter_Update(&lpFilter, accel_val_flt_x);
+		//float accel_val_lpf_y = RCFilter_Update(&lpFilter, accel_val_flt_y);
 		float accel_val_lpf_z = RCFilter_Update(&lpFilter, accel_val_flt_z);
 		__enable_irq();
 

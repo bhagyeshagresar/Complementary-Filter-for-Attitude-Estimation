@@ -96,7 +96,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  RCFilter_Init(&lpFilter, 5.0f, 0.01f);
+  RCFilter_Init(&lpFilter, 2.0f, 0.01f);
 
 
   /* USER CODE END Init */
@@ -235,14 +235,16 @@ int main(void)
 		float accel_val_flt_z = accel_val_z/16384.0;
 
 		//low pass filter the noisy measurements using a RC low pass filter
+		__disable_irq();
 		float accel_val_lpf_x = RCFilter_Update(&lpFilter, accel_val_flt_x);
 		float accel_val_lpf_y = RCFilter_Update(&lpFilter, accel_val_flt_y);
 		float accel_val_lpf_z = RCFilter_Update(&lpFilter, accel_val_flt_z);
+		__enable_irq();
 
 
-
-		sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_flt_x, accel_val_flt_y, accel_val_flt_z);
-		//sprintf(logBuf, "%.2f, %.2f\r\n", accel_val_flt_z, accel_val_lpf_z);
+		//sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_flt_x, accel_val_flt_y, accel_val_flt_z);
+		sprintf(logBuf, "%.2f\r\n",accel_val_lpf_z);
+		//sprintf(logBuf, "%.2f, %.2f\r\n", accel_val_flt_y, accel_val_lpf_y);
 		HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
 
 		timerSampling = HAL_GetTick();

@@ -47,9 +47,7 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c3;
-
 TIM_HandleTypeDef htim3;
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -72,10 +70,6 @@ static void MX_I2C3_Init(void);
 /* USER CODE BEGIN 0 */
 
 
-//memset(MLX90614_BUFFER,10, 0);
-
-
-
 /* USER CODE END 0 */
 
 /**
@@ -96,7 +90,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  RCFilter_Init(&lpFilter, 2.0f, 1);
+  //RCFilter_Init(&lpFilter, 2.0f, 0.01f);
 
 
   /* USER CODE END Init */
@@ -115,8 +109,6 @@ int main(void)
   MX_TIM3_Init();
   MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
-  //MX_IWDG_Init();
-
   char mlx_buff[100];
   uint8_t mpu_buff[50];
   char logBuf[128];
@@ -124,57 +116,42 @@ int main(void)
   int16_t accel_val_x;
   int16_t accel_val_y;
   int16_t accel_val_z;
-
+  float accel_val_lpf_x_old = 0;
+  float accel_val_lpf_y_old = 0;
+  float accel_val_lpf_z_old = 0;
+  float alpha = 0.0625;
   uint32_t timerSampling = 0;
+  uint8_t pwr_data = 0x00;
+
+  ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, 0x6B, 1, &pwr_data, 1, 100);
+
+	if(ret == HAL_OK){
+
+		  strcpy((char*)mpu_buff, "Device is awake\r\n");
+	  }
+	  else{
+		  strcpy((char*)mpu_buff, "Problem setting the sleep bit\r\n");
+	  }
+
+	HAL_UART_Transmit(&huart2, mpu_buff, strlen(mpu_buff), HAL_MAX_DELAY);
+
+	HAL_Delay(500);
+
+	uint8_t accel_init = 0x00;
 
 
-  //Initialise the MLX90614 temperature sensor
-   ret = MLX90614_initialise(&mlx90614, &hi2c1);
+	ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, ACCEL_CONFIG, 1, &accel_init, 1, 100);
 
-	 if(ret != HAL_OK){
-	   strcpy(mlx_buff, "Error in trying to initialise\n");
+	if(ret == HAL_OK){
 
-	 }else{
-		 strcpy(mlx_buff, "successfully initialised the temperature sensor\n");
-	 }
-
-	 HAL_UART_Transmit(&huart2, mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
-	 HAL_Delay(500);
+		  strcpy((char*)mpu_buff, "Acceleration is configured\r\n");
+	  }
+	  else{
+		  strcpy((char*)mpu_buff, "Problem configuring the acceleration\r\n");
+	  }
 
 
-
-
-    uint8_t pwr_data = 0x00;
-
-    ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, 0x6B, 1, &pwr_data, 1, 100);
-
-    if(ret == HAL_OK){
-
-    	  strcpy((char*)mpu_buff, "Device is awake\r\n");
-      }
-      else{
-    	  strcpy((char*)mpu_buff, "Problem setting the sleep bit\r\n");
-      }
-
-    HAL_UART_Transmit(&huart2, mpu_buff, strlen(mpu_buff), HAL_MAX_DELAY);
-
-    HAL_Delay(500);
-
-    uint8_t accel_init = 0x00;
-
-
-    ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, ACCEL_CONFIG, 1, &accel_init, 1, 100);
-
-    if(ret == HAL_OK){
-
-    	  strcpy((char*)mpu_buff, "Acceleration is configured\r\n");
-      }
-      else{
-    	  strcpy((char*)mpu_buff, "Problem configuring the acceleration\r\n");
-      }
-
-
-    HAL_UART_Transmit(&huart2, mpu_buff, strlen((mpu_buff)), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, mpu_buff, strlen((mpu_buff)), HAL_MAX_DELAY);
 
 
 
@@ -185,29 +162,6 @@ int main(void)
 
   while (1)
   {
-
-
-	//Read MLX90614 Sensor temperature
-	HAL_StatusTypeDef ret = MLX90614_ReadTemperature(&mlx90614);
-	if(ret != HAL_OK){
-		strcpy(mlx_buff, "Error in trying to read temperature\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t*)mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
-		HAL_Delay(2000);
-	}
-	else
-	{
-		int16_t temp_data = mlx90614.temp_data_c;
-		float temp_data_f = (float)temp_data;
-		//The signed 16bit integer should take care of prim
-		//TODO: how to represent floating point temperatures since resolution is 0.02C
-		sprintf(mlx_buff, "%.2f C\r\n", temp_data_f);
-		//HAL_UART_Transmit(&huart2, (uint8_t*)mlx_buff, strlen(mlx_buff), HAL_MAX_DELAY);
-		//wait for 500 ms
-		//HAL_Delay(500);
-
-
-	}
-
 
 	//sample at 10ms
 	if((HAL_GetTick() - timerSampling) >= SAMPLE_TIME){
@@ -235,15 +189,18 @@ int main(void)
 		float accel_val_flt_z = accel_val_z/16384.0;
 
 		//low pass filter the noisy measurements using a RC low pass filter
+		float accel_val_lpf_x_new = accel_val_lpf_x_old + ((alpha)*(accel_val_flt_x - accel_val_lpf_x_old));
+		float accel_val_lpf_y_new = accel_val_lpf_y_old + ((alpha)*(accel_val_flt_y - accel_val_lpf_y_old));
+		float accel_val_lpf_z_new = accel_val_lpf_z_old + ((alpha)*(accel_val_flt_z - accel_val_lpf_z_old));
 
-		float accel_val_lpf_x = RCFilter_Update(&lpFilter, accel_val_flt_x);
-		float accel_val_lpf_y = RCFilter_Update(&lpFilter, accel_val_flt_y);
-		float accel_val_lpf_z = RCFilter_Update(&lpFilter, accel_val_flt_z);
 
+		accel_val_lpf_x_old = accel_val_lpf_x_new;
+		accel_val_lpf_y_old = accel_val_lpf_y_new;
+		accel_val_lpf_z_old = accel_val_lpf_z_new;
 
 
 		//sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_flt_x, accel_val_flt_y, accel_val_flt_z);
-		sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_lpf_x, accel_val_lpf_y, accel_val_lpf_z);
+		sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_lpf_x_new, accel_val_lpf_y_new, accel_val_lpf_z_new);
 		HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
 
 		timerSampling = HAL_GetTick();

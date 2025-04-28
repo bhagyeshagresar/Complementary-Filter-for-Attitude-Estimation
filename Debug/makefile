@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := haptic_glove
+BUILD_ARTIFACT_NAME := Complementary_Filter_Attitude_Estimation
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-haptic_glove.elf \
+Complementary_Filter_Attitude_Estimation.elf \
 
 MAP_FILES += \
-haptic_glove.map \
+Complementary_Filter_Attitude_Estimation.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-haptic_glove.list \
+Complementary_Filter_Attitude_Estimation.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: haptic_glove.elf secondary-outputs
+main-build: Complementary_Filter_Attitude_Estimation.elf secondary-outputs
 
 # Tool invocations
-haptic_glove.elf haptic_glove.map: $(OBJS) $(USER_OBJS) C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "haptic_glove.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="haptic_glove.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
+Complementary_Filter_Attitude_Estimation.elf Complementary_Filter_Attitude_Estimation.map: $(OBJS) $(USER_OBJS) C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Complementary_Filter_Attitude_Estimation.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\bhagy\STM32CubeIDE\workspace_1.12.0\realtime_cooling_fan\STM32F401RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Complementary_Filter_Attitude_Estimation.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,14 +70,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-haptic_glove.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "haptic_glove.list"
+Complementary_Filter_Attitude_Estimation.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Complementary_Filter_Attitude_Estimation.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout haptic_glove.elf haptic_glove.list haptic_glove.map
+	-$(RM) Complementary_Filter_Attitude_Estimation.elf Complementary_Filter_Attitude_Estimation.list Complementary_Filter_Attitude_Estimation.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

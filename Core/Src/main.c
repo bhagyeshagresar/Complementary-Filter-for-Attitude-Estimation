@@ -26,6 +26,7 @@
 #include "mpu6050.h"
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,7 +36,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SAMPLE_TIME 1000
+#define SAMPLE_TIME 10
+#define RAD_TO_DEG 57.2957795131f
+#define ACCEL_G 9.81
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,8 +49,9 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c3;
+
 TIM_HandleTypeDef htim3;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -59,9 +63,8 @@ RCFilter lpFilter;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_I2C3_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -105,55 +108,63 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
-  MX_I2C1_Init();
   MX_TIM3_Init();
-  MX_I2C3_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   char mlx_buff[100];
   uint8_t mpu_buff[50];
+  uint8_t status_buff[50];
   char logBuf[128];
   HAL_StatusTypeDef ret;
   int16_t accel_val_x;
   int16_t accel_val_y;
   int16_t accel_val_z;
+  int16_t gyro_val_x;
+  int16_t gyro_val_y;
+  int16_t gyro_val_z;
   float accel_val_lpf_x_old = 0;
   float accel_val_lpf_y_old = 0;
   float accel_val_lpf_z_old = 0;
   float alpha = 0.0625;
+  float rollangle_deg = 0.0f;
+  float pitchangle_deg = 0.0f;
+
   uint32_t timerSampling = 0;
   uint8_t pwr_data = 0x00;
 
+
+  //Make sure Device is awake
   ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, 0x6B, 1, &pwr_data, 1, 100);
 
 	if(ret == HAL_OK){
 
-		  strcpy((char*)mpu_buff, "Device is awake\r\n");
+		  strcpy((char*)status_buff, "Device is awake\r\n");
 	  }
 	  else{
-		  strcpy((char*)mpu_buff, "Problem setting the sleep bit\r\n");
+		  strcpy((char*)status_buff, "Problem setting the sleep bit\r\n");
 	  }
 
-	HAL_UART_Transmit(&huart2, mpu_buff, strlen(mpu_buff), HAL_MAX_DELAY);
-
+	HAL_UART_Transmit(&huart2, status_buff, strlen(status_buff), HAL_MAX_DELAY);
 	HAL_Delay(500);
 
+
+	//Make sure acceleration is configured
 	uint8_t accel_init = 0x00;
-
-
 	ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, ACCEL_CONFIG, 1, &accel_init, 1, 100);
 
 	if(ret == HAL_OK){
 
-		  strcpy((char*)mpu_buff, "Acceleration is configured\r\n");
+		  strcpy((char*)status_buff, "Acceleration is configured\r\n");
 	  }
 	  else{
-		  strcpy((char*)mpu_buff, "Problem configuring the acceleration\r\n");
+		  strcpy((char*)status_buff, "Problem configuring the acceleration\r\n");
 	  }
 
 
-	HAL_UART_Transmit(&huart2, mpu_buff, strlen((mpu_buff)), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, status_buff, strlen((status_buff)), HAL_MAX_DELAY);
 
 
+  //TODO - add a calibration function for getting the sensor offsets
 
   /* USER CODE END 2 */
 
@@ -166,12 +177,12 @@ int main(void)
 	//sample at 10ms
 	if((HAL_GetTick() - timerSampling) >= SAMPLE_TIME){
 
-		//read all 3 accelerometer values by specifiying 6 as the size
-		ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT , mpu_buff, 6, 10000);
+		//read all accelerometer values + temperature reading + gyro values
+		ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT , mpu_buff, 14, 10000);
 
 		if(ret != HAL_OK){
-			strcpy((char*)mpu_buff, "Error Reading Accelerometer data\r\n");
-			HAL_UART_Transmit(&huart2, mpu_buff, strlen((mpu_buff)), HAL_MAX_DELAY);
+			strcpy((char*)status_buff, "Error Reading Accelerometer data\r\n");
+			HAL_UART_Transmit(&huart2, status_buff, strlen((status_buff)), HAL_MAX_DELAY);
 
 		}
 		else{
@@ -179,20 +190,35 @@ int main(void)
 		}
 
 		//combine the two bytes for accel x, y and z
-		accel_val_x = ((uint16_t)(mpu_buff[0] << 8) | mpu_buff[1]);
-		accel_val_y = ((uint16_t)(mpu_buff[2] << 8) | mpu_buff[3]);
-		accel_val_z = ((uint16_t)(mpu_buff[4] << 8) | mpu_buff[5]);
+		accel_val_x = (mpu_buff[0] << 8 | mpu_buff[1]);
+		accel_val_y = (mpu_buff[2] << 8 | mpu_buff[3]);
+		accel_val_z = (mpu_buff[4] << 8 | mpu_buff[5]);
+
+
+		gyro_val_x = (mpu_buff[8] << 8 | mpu_buff[9]);
+		gyro_val_y = (mpu_buff[10] << 8 | mpu_buff[11]);
+		gyro_val_z = (mpu_buff[12] << 8 | mpu_buff[13]);
+
 
 		//convert raw acceleration values to g values
 		float accel_val_flt_x = accel_val_x/16384.0; //why 0.000061 ?
 		float accel_val_flt_y = accel_val_y/16384.0;
 		float accel_val_flt_z = accel_val_z/16384.0;
 
-		//low pass filter the noisy measurements using a RC low pass filter
-		float accel_val_lpf_x_new = accel_val_lpf_x_old + ((alpha)*(accel_val_flt_x - accel_val_lpf_x_old));
-		float accel_val_lpf_y_new = accel_val_lpf_y_old + ((alpha)*(accel_val_flt_y - accel_val_lpf_y_old));
-		float accel_val_lpf_z_new = accel_val_lpf_z_old + ((alpha)*(accel_val_flt_z - accel_val_lpf_z_old));
+		//Gyro values,no need to filter
+		float gyro_val_flt_x = gyro_val_x/131.0;
+		float gyro_val_flt_y = gyro_val_y/131.0;
+		float gyro_val_flt_z = gyro_val_z/131.0;
 
+		//First Order IIR FIlter : https://vanhunteradams.com/Pico/ReactionWheel/Digital_Lowpass_Filters.html
+		//RC = delta_t*(2^N), here N = 4, so RC = (10ms*16) = 160ms for the filtered output to reach 63% of its new value
+		float accel_val_lpf_x_new = accel_val_lpf_x_old + (alpha*(accel_val_flt_x - accel_val_lpf_x_old));
+		float accel_val_lpf_y_new = accel_val_lpf_y_old + (alpha*(accel_val_flt_y - accel_val_lpf_y_old));
+		float accel_val_lpf_z_new = accel_val_lpf_z_old + (alpha*(accel_val_flt_z - accel_val_lpf_z_old));
+
+		//Compute roll and pitch using filtered accelerometer data
+		rollangle_deg = atanf(accel_val_lpf_y_new/ accel_val_lpf_z_new)*RAD_TO_DEG;
+		pitchangle_deg = asinf(accel_val_lpf_x_new / ACCEL_G)*RAD_TO_DEG;
 
 		accel_val_lpf_x_old = accel_val_lpf_x_new;
 		accel_val_lpf_y_old = accel_val_lpf_y_new;
@@ -200,7 +226,8 @@ int main(void)
 
 
 		//sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_flt_x, accel_val_flt_y, accel_val_flt_z);
-		sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_lpf_x_new, accel_val_lpf_y_new, accel_val_lpf_z_new);
+		sprintf(logBuf, "%.2f\r\n", accel_val_lpf_z_new);
+		//sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_lpf_x_new, accel_val_lpf_y_new, accel_val_lpf_z_new);
 		HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
 
 		timerSampling = HAL_GetTick();
@@ -291,40 +318,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief I2C3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C3_Init(void)
-{
-
-  /* USER CODE BEGIN I2C3_Init 0 */
-
-  /* USER CODE END I2C3_Init 0 */
-
-  /* USER CODE BEGIN I2C3_Init 1 */
-
-  /* USER CODE END I2C3_Init 1 */
-  hi2c3.Instance = I2C3;
-  hi2c3.Init.ClockSpeed = 100000;
-  hi2c3.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c3.Init.OwnAddress1 = 0;
-  hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c3.Init.OwnAddress2 = 0;
-  hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C3_Init 2 */
-
-  /* USER CODE END I2C3_Init 2 */
 
 }
 

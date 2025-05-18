@@ -22,7 +22,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "RCFilter.h"
-#include "mlx90614.h"
 #include "mpu6050.h"
 #include <string.h>
 #include <stdio.h>
@@ -36,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SAMPLE_TIME 10
+#define SAMPLE_TIME 100
 #define RAD_TO_DEG 57.2957795131f
 #define ACCEL_G 9.81
 /* USER CODE END PD */
@@ -55,8 +54,14 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-MLX90614 mlx90614;
 RCFilter lpFilter;
+static int16_t accel_val_xOff = 0;
+static int16_t accel_val_yOff = 0;
+static int16_t accel_val_zOff = 0;
+static int16_t gyro_val_xOff = 0;
+static int16_t gyro_val_yOff = 0;
+static int16_t gyro_val_zOff = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -122,6 +127,8 @@ int main(void)
   int16_t gyro_val_x;
   int16_t gyro_val_y;
   int16_t gyro_val_z;
+
+
   float accel_val_lpf_x_old = 0;
   float accel_val_lpf_y_old = 0;
   float accel_val_lpf_z_old = 0;
@@ -148,9 +155,9 @@ int main(void)
 	HAL_Delay(500);
 
 
-	//Make sure acceleration is configured
-	uint8_t accel_init = 0x00;
-	ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, ACCEL_CONFIG, 1, &accel_init, 1, 100);
+	//Make sure acceleration is configured to the first one as per datasheet Pg.15(AFS_SEL = 0 & full scale range of +- 2g)
+	uint8_t accel_init_val = 0x00;
+	ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, ACCEL_CONFIG, 1, &accel_init_val, 1, 100);
 
 	if(ret == HAL_OK){
 
@@ -162,10 +169,24 @@ int main(void)
 
 
 	HAL_UART_Transmit(&huart2, status_buff, strlen((status_buff)), HAL_MAX_DELAY);
+	HAL_Delay(500);
+
+	//Make sure gyro is configured to the first one as per datasheet Pg.14 (FS_SEL = 0 & full scale range of +- 250 deg/s)
+	uint8_t gyro_init_val = 0x00;
+	ret = HAL_I2C_Mem_Write(&hi2c1, MPU6050_ADDR, GYRO_CONFIG, 1, &gyro_init_val, 1, 100);
+
+	if(ret == HAL_OK){
+		strcpy((char*)status_buff, "Gyroscope is configured\r\n");
+	  }
+   else{
+	  strcpy((char*)status_buff, "Problem configuring the gyroscope\r\n");
+   }
+
+	HAL_UART_Transmit(&huart2, status_buff, strlen((status_buff)), HAL_MAX_DELAY);
+	HAL_Delay(500);
 
 
-  //TODO - add a calibration function for getting the sensor offsets
-
+  //calibrate();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -194,7 +215,7 @@ int main(void)
 		accel_val_y = (mpu_buff[2] << 8 | mpu_buff[3]);
 		accel_val_z = (mpu_buff[4] << 8 | mpu_buff[5]);
 
-
+		//combine the two bytes for angular rate along x, y and z
 		gyro_val_x = (mpu_buff[8] << 8 | mpu_buff[9]);
 		gyro_val_y = (mpu_buff[10] << 8 | mpu_buff[11]);
 		gyro_val_z = (mpu_buff[12] << 8 | mpu_buff[13]);
@@ -226,7 +247,7 @@ int main(void)
 
 
 		//sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_flt_x, accel_val_flt_y, accel_val_flt_z);
-		sprintf(logBuf, "%.2f\r\n", accel_val_lpf_z_new);
+		sprintf(logBuf, "%d, %d\r\n", accel_val_z, gyro_val_z);
 		//sprintf(logBuf, "%.2f, %.2f, %.2f\r\n", accel_val_lpf_x_new, accel_val_lpf_y_new, accel_val_lpf_z_new);
 		HAL_UART_Transmit(&huart2, logBuf, strlen((logBuf)), HAL_MAX_DELAY);
 
@@ -468,7 +489,51 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 }
 
 
+void calibrate(){
 
+	int num = 500;
+	int accel_xSum = 0;
+	int accel_ySum = 0;
+	int accel_zSum = 0;
+	int gyro_xSum = 0;
+	int gyro_ySum = 0;
+	int gyro_zSum = 0;
+	HAL_StatusTypeDef ret;
+	uint8_t buff[50];
+	uint8_t status_buff[50];
+
+	for(int i = 0; i < num; i++){
+		ret = HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDR, ACCEL_XOUT_H, I2C_MEMADD_SIZE_8BIT , buff, 14, 10000);
+
+		if(ret != HAL_OK){
+			strcpy((char*)status_buff, "Error Reading Accelerometer and gyroscope data\r\n");
+			HAL_UART_Transmit(&huart2, status_buff, strlen((status_buff)), HAL_MAX_DELAY);
+
+		}
+		else{
+			return;
+		}
+
+		accel_xSum += (buff[0] << 8 | buff[1]);
+		accel_ySum += (buff[2] << 8 | buff[3]);
+		accel_zSum += (buff[4] << 8 | buff[5]);
+
+
+		gyro_xSum += (buff[8] << 8 | buff[9]);
+		gyro_ySum += (buff[10] << 8 | buff[11]);
+		gyro_zSum += (buff[12] << 8 | buff[13]);
+
+	}
+
+	accel_val_xOff = accel_xSum/num;
+	accel_val_yOff = accel_ySum/num;
+	accel_val_zOff = accel_zSum/num;
+	gyro_val_xOff = gyro_xSum/num;
+	gyro_val_yOff = gyro_ySum/num;
+	gyro_val_zOff = gyro_zSum/num;
+
+
+}
 
 /* USER CODE END 4 */
 

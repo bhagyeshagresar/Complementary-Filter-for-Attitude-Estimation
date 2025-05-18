@@ -13,8 +13,9 @@
 
 
 //config Registers
-#define ACCEL_CONFIG 0x1C
-#define PWR_MGMT_1 0x6B
+#define ACCEL_CONFIG 	0x1C
+#define GYRO_CONFIG 	0x1B
+#define PWR_MGMT_1 		0x6B
 #define MPU6050_INT_PIN GPIO_PIN_0
 #define MPU6050_ADDR (0x68<<1)
 #define WHO_AM_I 0x75;

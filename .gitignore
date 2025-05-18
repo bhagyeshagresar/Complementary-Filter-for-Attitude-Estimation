@@ -1,0 +1,19 @@
+# Build files
+*.o
+*.out
+*.elf
+*.hex
+*.bin
+
+# IDE-specific
+.vscode/
+.idea/
+*.swp
+
+# Logs and temporary
+*.log
+*.tmp
+
+# OS-specific
+.DS_Store
+Thumbs.db

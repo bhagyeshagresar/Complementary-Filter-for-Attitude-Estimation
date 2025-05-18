@@ -5,24 +5,10 @@
 *.hex
 *.bin
 
-# IDE-specific
-.vscode/
-.idea/
-*.swp
+# Ignore everything
+*
 
-# Logs and temporary
-*.log
-*.tmp
-
-# OS-specific
-.DS_Store
-Thumbs.db
-
-# Launch Files
-.launch
-
-# Project Files and miscellanous
-.settings
-.mxproject
-.project
-.ld
+# But NOT these (negation)
+!.gitignore
+!Core/
+!Core/**

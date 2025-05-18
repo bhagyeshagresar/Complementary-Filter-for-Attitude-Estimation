@@ -17,3 +17,12 @@
 # OS-specific
 .DS_Store
 Thumbs.db
+
+# Launch Files
+.launch
+
+# Project Files and miscellanous
+.settings
+.mxproject
+.project
+.ld

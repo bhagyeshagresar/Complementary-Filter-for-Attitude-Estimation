@@ -10,5 +10,6 @@
 
 # But NOT these (negation)
 !.gitignore
+!README.md
 !Core/
 !Core/**
